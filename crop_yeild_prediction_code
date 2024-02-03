@@ -1,0 +1,595 @@
+
+Code And Predicted Output
+
+The science of training machines to learn and produce models for future predictions is widely used, and not for nothing. Agriculture plays a critical role in the global economy. With the continuing expansion of the human population understanding worldwide crop yield is central to addressing food security challenges and reducing the impacts of climate change.
+Crop yield prediction is an important agricultural problem. The Agricultural yield primarily depends on weather conditions (rain, temperature, etc), pesticides and accurate information about history of crop yield is an important thing for making decisions related to agricultural risk management and future predictions. The basic ingredients that sustain humans are similar. We eat a lot of corn, wheat, rice and other simple crops. In this paper the prediction of top 10 most consumed yields all over the world is established by applying machine learning techniques. It consist of 10 most consumed crops. It is a regression problem.
+
+These corps include :
+•	Cassava
+•	Maize
+•	Plantains and others
+•	Potatoes
+•	Rice, paddy
+•	Sorghum
+•	Soybeans
+•	Sweet potatoes
+•	Wheat
+•	Yams
+
+Gathering & Cleaning Data
+Crops Yield Data:
+After importing required libraries, crops yield of ten most consumed crops around the world was downloaded from FAO webiste.The collected data include country, item, year starting from 1961 to 2016 and yield value.
+
+import numpy as np 
+import pandas as pd 
+In [2]:
+linkcode
+df_yield = pd.read_csv('../input/crop-yield-prediction-dataset/yield.csv')
+df_yield.shape
+(output)
+(56717, 12)
+
+df_yield.head()
+df_yield.tail(10)
+
+Looking at the columns in the csv, we can rename Value to hg/ha_yield to make it easier to recognise that this is our crops yields production value. In addition to removal of unnecessary coloumns like Area Code, Domain, Item Code, etc.
+
+# rename columns.
+df_yield = df_yield.rename(index=str, columns={"Value": "hg/ha_yield"})
+df_yield.head()
+
+# drop unwanted columns.
+df_yield = df_yield.drop(['Year Code','Element Code','Element','Year Code','Area Code','Domain Code','Domain','Unit','Item Code'], axis=1)
+df_yield.head()
+
+Area	Item	Year	hg/ha_yield
+Afghanistan	Maize	1961	14000
+Afghanistan	Maize	1962	14000
+Afghanistan	Maize	1963	14260
+Afghanistan	Maize	1964	14257
+Afghanistan	Maize	1965	14400
+
+
+
+
+
+
+
+
+
+
+
+
+
+df_yield.describe()
+
+
+	Year 
+	
+hg/ha_yield
+count	56717.000000	56717.000000
+mean	1989.669570	62094.660084
+std	16.133198	67835.932856
+min	1961.000000	0.000000
+25%	1976.000000	15680.000000
+50%	1991.000000	36744.000000
+75%	2004.000000	86213.000000
+max	2016.000000	1000000.000000
+df_yield.info()
+<class 'pandas.core.frame.DataFrame'>
+Index: 56717 entries, 0 to 56716
+Data columns (total 4 columns):
+ #   Column       Non-Null Count  Dtype 
+---  ------       --------------  ----- 
+ 0   Area         56717 non-null  object
+ 1   Item         56717 non-null  object
+ 2   Year         56717 non-null  int64 
+ 3   hg/ha_yield  56717 non-null  int64 
+dtypes: int64(2), object(2)
+memory usage: 2.2+ MB
+
+Climate Data : Rainfall
+The climatic factors include rainfall and temperature. They are abiotic components, including pesticides and soil, of the environmental factors that influence plant growth and development.
+Rainfall has a dramatic effect on agriculture. For this project rain fall per year information was gathered from World Data Bank.
+df_rain = pd.read_csv('../input/crop-yield-prediction-dataset/rainfall.csv')
+df_rain.head()
+
+	Area	Year	average_rain_fall_mm_per_year
+0	Afghanistan	1985	327
+1	Afghanistan	1986	327
+2	Afghanistan	1987	327
+3	Afghanistan	1989	327
+4	Afghanistan	1990	327
+
+df_rain.tail()
+
+	Area	Year	
+average_rain_fall_mm_per_year
+6722	Zimbabwe	2013	657
+6723	Zimbabwe	2014	657
+6724	Zimbabwe	2015	657
+6725	Zimbabwe	2016	657
+6726	Zimbabwe	2017	657
+
+df_rain = df_rain.rename(index=str, columns={" Area": 'Area'})
+
+Checking for the datatypes
+
+df_rain.info()
+
+<class 'pandas.core.frame.DataFrame'>
+Index: 6727 entries, 0 to 6726
+Data columns (total 3 columns):
+ #   Column                         Non-Null Count  Dtype 
+---  ------                         --------------  ----- 
+ 0   Area                           6727 non-null   object
+ 1   Year                           6727 non-null   int64 
+ 2   average_rain_fall_mm_per_year  5953 non-null   object
+dtypes: int64(1), object(2)
+memory usage: 210.2+ KB
+
+convert average_rain_fall_mm_per_year from object to float
+
+df_rain['average_rain_fall_mm_per_year'] = pd.to_numeric(df_rain['average_rain_fall_mm_per_year'],errors = 'coerce')
+df_rain.info()
+
+
+<class 'pandas.core.frame.DataFrame'>
+Index: 6727 entries, 0 to 6726
+Data columns (total 3 columns):
+ #   Column                         Non-Null Count  Dtype  
+---  ------                         --------------  -----  
+ 0   Area                           6727 non-null   object 
+ 1   Year                           6727 non-null   int64  
+ 2   average_rain_fall_mm_per_year  5947 non-null   float64
+dtypes: float64(1), int64(1), object(1)
+memory usage: 210.2+ KB
+
+Next, droping any empty rows from dataset and merge yield dataframe with rain dataframe by year and area columns     
+
+df_rain = df_rain.dropna()
+
+df_rain.describe()
+
+
+	Year	
+average_rain_fall_mm_per_year
+count	5947.000000	5947.000000
+mean	2001.365899	1124.743232
+std	9.526335	786.257365
+min	1985.000000	51.000000
+25%	1993.000000	534.000000
+50%	2001.000000	1010.000000
+75%	2010.000000	1651.000000
+max	2017.000000	3240.000000
+
+The rainfall dataframe begins at 1985 and ends at 2016.
+
+Merge Yield Dataframe with rain Dataframe by year and area columns
+yield_df = pd.merge(df_yield, df_rain, on=['Year','Area'])
+
+yield_df.head()
+
+
+	Area	Item	Year	hg/ha_yield	average_rain_fall_mm_per_year
+0	Afghanistan	Maize	1985	16652	327.0
+1	Afghanistan	Potatoes	1985	140909	327.0
+2	Afghanistan	Rice, paddy	1985	22482	327.0
+3	Afghanistan	Wheat	1985	12277	327.0
+4	Afghanistan	Maize	1986	16875	327.0
+
+We can see that now the years start from the first yield dataframe the starting year was 1961, now it's 1985 because that's when the rainfall data begins.
+yield_df.describe()
+
+	
+Year	hg/ha_yield	average_rain_fall_mm_per_year
+count	25385.000000	25385.000000	25385.000000
+mean	2001.278787	68312.278353	1254.849754
+std	9.143915	75213.292733	804.449430
+min	1985.000000	50.000000	51.000000
+25%	1994.000000	17432.000000	630.000000
+50%	2001.000000	38750.000000	1150.000000
+75%	2009.000000	94286.000000	1761.000000
+max	2016.000000	554855.000000	3240.000000
+
+Pesticides Data:
+Pesticides used for each item and country was also collected from FAO database.
+df_pes = pd.read_csv('../input/crop-yield-prediction-dataset/pesticides.csv')
+df_pes.head()
+
+
+	Domain	Area	Elemen	Item	Year	Unit	Value
+0	Pesticides Use	Albania	Use	Pesticides (total)	1990	tonnes of active ingredients	121.0
+1	Pesticides Use	Albania	Use	Pesticides (total)	1991	tonnes of active ingredients	121.0
+2	Pesticides Use	Albania	Use	Pesticides (total)	1992	tonnes of active ingredients	121.0
+3	Pesticides Use	Albania	Use	Pesticides (total)	1993	tonnes of active ingredients	121.0
+4	Pesticides Use	Albania	Use	Pesticides (total)	1994	tonnes of active ingredients	201.0
+
+df_pes = df_pes.rename(index=str, columns={"Value": "pesticides_tonnes"})
+df_pes = df_pes.drop(['Element','Domain','Unit','Item'], axis=1)
+df_pes.head()
+
+
+	Area	Year	pesticides_tonnes
+0	Albania	1990	121.0
+1	Albania	1991	121.0
+2	Albania	1992	121.0
+3	Albania	1993	121.0
+4	Albania	1994	201.0
+
+df_pes.describe()
+
+
+	Year	pesticides_tonnes
+count	4349.000000	4.349000e+03
+mean	2003.138883	2.030334e+04
+std	7.728044	1.177362e+05
+min	1990.000000	0.000000e+00
+25%	1996.000000	9.300000e+01
+50%	2003.000000	1.137560e+03
+75%	2010.000000	7.869000e+03
+max	2016.000000	1.807000e+06
+
+df_pes.info()
+
+<class 'pandas.core.frame.DataFrame'>
+Index: 4349 entries, 0 to 4348
+Data columns (total 3 columns):
+ #   Column             Non-Null Count  Dtype  
+---  ------             --------------  -----  
+ 0   Area               4349 non-null   object 
+ 1   Year               4349 non-null   int64  
+ 2   pesticides_tonnes  4349 non-null   float64
+dtypes: float64(1), int64(1), object(1)
+memory usage: 135.9+ KB
+
+Merge Pesticides dataframe with yield dataframe
+In [23]:
+yield_df = pd.merge(yield_df, df_pes, on=['Year','Area'])
+yield_df.shape
+Out[23]:
+(18949, 6)
+In [24]:
+yield_df.head()
+
+Average Temprature:
+Average Temprature for each country was colleced from World Bank Data.
+In [25]:
+avg_temp=  pd.read_csv('../input/crop-yield-prediction-dataset/temp.csv')
+In [26]:
+avg_temp.head()
+Out[26]:
+	year	country	avg_temp
+0	1849	Côte D'Ivoire	25.58
+1	1850	Côte D'Ivoire	25.52
+2	1851	Côte D'Ivoire	25.67
+3	1852	Côte D'Ivoire	NaN
+4	1853	Côte D'Ivoire	NaN
+In [27]:
+avg_temp.describe()
+Out[27]:
+	year	avg_temp
+count	71311.000000	68764.000000
+mean	1905.799007	16.183876
+std	67.102099	7.592960
+min	1743.000000	-14.350000
+25%	1858.000000	9.750000
+50%	1910.000000	16.140000
+75%	1962.000000	23.762500
+max	2013.000000	30.730000
+So average temprature starts from 1743 and ends at 2013, with some empty rows that we have to drop.
+In [28]:
+avg_temp = avg_temp.rename(index=str, columns={"year": "Year", "country":'Area'})
+avg_temp.head()
+Out[28]:
+	Year	Area	avg_temp
+0	1849	Côte D'Ivoire	25.58
+1	1850	Côte D'Ivoire	25.52
+2	1851	Côte D'Ivoire	25.67
+3	1852	Côte D'Ivoire	NaN
+4	1853	Côte D'Ivoire	NaN
+In [29]:
+linkcode
+yield_df = pd.merge(yield_df,avg_temp, on=['Area','Year'])
+yield_df.head()
+
+yield_df.shape
+Out[30]:
+(28242, 7)
+In [31]:
+linkcode
+yield_df.describe()
+
+yield_df.isnull().sum()
+Out[32]:
+Area                             0
+Item                             0
+Year                             0
+hg/ha_yield                      0
+average_rain_fall_mm_per_year    0
+pesticides_tonnes                0
+avg_temp                         0
+dtype: int64
+Great, no empty values!
+Data Exploration
+yield_df is the final obtained dataframe;
+In [33]:
+linkcode
+yield_df.groupby('Item').count()
+
+yield_df.describe()
+
+It can be noticed the high variance in the values for each columns, later on I'll account for that will scaling.
+In [35]:
+yield_df['Area'].nunique()
+Out[35]:
+101
+The dataframe has 101 Countries, ordering these by 10 the highest yield production:
+In [36]:
+yield_df.groupby(['Area'],sort=True)['hg/ha_yield'].sum().nlargest(10)
+Out[36]:
+Area
+India             327420324
+Brazil            167550306
+Mexico            130788528
+Japan             124470912
+Australia         109111062
+Pakistan           73897434
+Indonesia          69193506
+United Kingdom     55419990
+Turkey             52263950
+Spain              46773540
+Name: hg/ha_yield, dtype: int64
+India has the highest yield production in the dataset. Inclusing items in the groupby:
+In [37]:
+yield_df.groupby(['Item','Area'],sort=True)['hg/ha_yield'].sum().nlargest(10)
+Out[37]:
+Item            Area          
+Cassava         India             142810624
+Potatoes        India              92122514
+                Brazil             49602168
+                United Kingdom     46705145
+                Australia          45670386
+Sweet potatoes  India              44439538
+Potatoes        Japan              42918726
+                Mexico             42053880
+Sweet potatoes  Mexico             35808592
+                Australia          35550294
+Name: hg/ha_yield, dtype: int64
+India is the highest for production of cassava and potatoes. Potatoes seems to be the dominated crop in the dataset, being the highest in 4 countries.
+The final dataframe starts from 1990 and ends in 2013, that's 23 years worth of data for 101 countries.
+Now, exploring the relationships between the colunms of the dataframe, a good way to quickly check correlations among columns is by visualizing the correlation matrix as a heatmap.
+In [38]:
+import sklearn
+import seaborn as sns
+import matplotlib.pyplot as plt
+In [39]:
+correlation_data=yield_df.select_dtypes(include=[np.number]).corr()
+
+mask = np.zeros_like(correlation_data, dtype=np.bool)
+mask[np.triu_indices_from(mask)] = True
+
+f, ax = plt.subplots(figsize=(11, 9))
+
+# Generate a custom diverging colormap
+cmap = sns.palette="vlag"
+
+# Draw the heatmap with the mask and correct aspect ratio
+sns.heatmap(correlation_data, mask=mask, cmap=cmap, vmax=.3, center=0,
+            square=True, linewidths=.5, cbar_kws={"shrink": .5});
+
+it can be seen from the above correlation map that there is no correlation between any of the colmuns in the dataframe.
+Data Preprocessing
+Data Preprocessing is a technique that is used to convert the raw data into a clean data set. In other words, whenever the data is gathered from different sources it is collected in raw format which is not feasible for the analysis.
+In [40]:
+linkcode
+yield_df.head()
+
+Encoding Categorical Variables:
+There are two categorical columns in the dataframe, categorical data are variables that contain label values rather than numeric values. The number of possible values is often limited to a fixed set, like in this case, items and countries values. Many machine learning algorithms cannot operate on label data directly. They require all input variables and output variables to be numeric.
+This means that categorical data must be converted to a numerical form. One hot encoding is a process by which categorical variables are converted into a form that could be provided to ML algorithms to do a better job in prediction. For that purpose, One-Hot Encoding will be used to convert these two columns to one-hot numeric array.
+The categorical value represents the numerical value of the entry in the dataset. This encoding will create a binary column for each category and returns a matrix with the results.
+In [41]:
+from sklearn.preprocessing import OneHotEncoder
+In [42]:
+linkcode
+yield_df_onehot = pd.get_dummies(yield_df, columns=['Area',"Item"], prefix = ['Country',"Item"])
+features=yield_df_onehot.loc[:, yield_df_onehot.columns != 'hg/ha_yield']
+label=yield_df['hg/ha_yield']
+features.head()
+
+features = features.drop(['Year'], axis=1)
+In [44]:
+features.info()
+<class 'pandas.core.frame.DataFrame'>
+Int64Index: 28242 entries, 0 to 28241
+Columns: 114 entries, average_rain_fall_mm_per_year to Item_Yams
+dtypes: float64(3), uint8(111)
+memory usage: 3.9 MB
+In [45]:
+linkcode
+features.head()
+
+Scaling Features:
+Taking a look at the dataset above, it contains features highly varying in magnitudes, units and range. The features with high magnitudes will weigh in a lot more in the distance calculations than features with low magnitudes.
+To supress this effect, we need to bring all features to the same level of magnitudes. This can be acheived by scaling.
+In [46]:
+from sklearn.preprocessing import MinMaxScaler
+scaler=MinMaxScaler()
+features=scaler.fit_transform(features) 
+After dropping year column in addition to scaling all values in features, the resulting array will look something like this :
+In [47]:
+features
+Out[47]:
+array([[4.49670743e-01, 3.28894097e-04, 5.13458262e-01, ...,
+        0.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+       [4.49670743e-01, 3.28894097e-04, 5.13458262e-01, ...,
+        0.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+       [4.49670743e-01, 3.28894097e-04, 5.13458262e-01, ...,
+        0.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+       ...,
+       [1.90028222e-01, 6.93361288e-03, 6.28960818e-01, ...,
+        0.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+       [1.90028222e-01, 6.93361288e-03, 6.28960818e-01, ...,
+        1.00000000e+00, 0.00000000e+00, 0.00000000e+00],
+       [1.90028222e-01, 6.93361288e-03, 6.28960818e-01, ...,
+        0.00000000e+00, 1.00000000e+00, 0.00000000e+00]])
+Training Data:
+The dataset will be split to two datasets, the training dataset and test dataset. The data is usually tend to be split inequality because training the model usually requires as much data-points as possible.The common splits are 70/30 or 80/20 for train/test.
+The training dataset is the intial dataset used to train ML algorithm to learn and produce right predictions. (70% of dataset is training dataset)
+The test dataset, however, is used to assess how well ML algorithm is trained with the training dataset. You can’t simply reuse the training dataset in the testing stage because ML algorithm will already “know” the expected output, which defeats the purpose of testing the algorithm. (30% of dataset is testing dataset)
+In [48]:
+linkcode
+from sklearn.model_selection import train_test_split
+train_data, test_data, train_labels, test_labels = train_test_split(features, label, test_size=0.2, random_state=42)
+In [49]:
+#write final df to csv file 
+#yield_df.to_csv('../input/crop-yield-prediction-dataset/yield_df.csv')
+In [50]:
+from sklearn.model_selection import train_test_split
+train_data, test_data, train_labels, test_labels = train_test_split(features, label, test_size=0.2, random_state=42)
+Model Comparison & Selection
+In [51]:
+# from sklearn.metrics import r2_score
+# def compare_models(model):
+#     model_name = model.__class__.__name__
+#     fit=model.fit(train_data,train_labels)
+#     y_pred=fit.predict(test_data)
+#     r2=r2_score(test_labels,y_pred)
+#     return([model_name,r2])
+In [52]:
+# from sklearn.ensemble import RandomForestRegressor
+# from sklearn.ensemble import GradientBoostingRegressor
+# from sklearn import svm
+# from sklearn.tree import DecisionTreeRegressor
+
+# models = [
+#     GradientBoostingRegressor(n_estimators=200, max_depth=3, random_state=0),
+#      RandomForestRegressor(n_estimators=200, max_depth=3, random_state=0),
+#     svm.SVR(),
+#    DecisionTreeRegressor()
+# ]
+In [53]:
+# model_train=list(map(compare_models,models)) 
+In [54]:
+# print(*model_train, sep = "\n")
+The evaluation metric is set based on R^2 (coefficient of determination) regression score function, that will represents the proportion of the variance for items (crops) in the regression model. R^2 score shows how well terms (data points) fit a curve or line.
+R^2 is a statistical measure between 0 and 1 which calculates how similar a regression line is to the data it’s fitted to. If it’s a 1, the model 100% predicts the data variance; if it’s a 0, the model predicts none of the variance.
+From results viewd above, Decision Tree Regressor has the highest R^2 score 0f 96%, GradientBoostingRegressor comes second.
+I'll also calculate Adjusted R^2 also indicates how well terms fit a curve or line, but adjusts for the number of terms in a model. If you add more and more useless variables to a model, adjusted r-squared will decrease. If you add more useful variables, adjusted r-squared will increase. Adjusted R2 will always be less than or equal to R2.
+In [55]:
+yield_df_onehot = yield_df_onehot.drop(['Year'], axis=1)
+In [56]:
+linkcode
+yield_df_onehot.head()
+
+#setting test data to columns from dataframe and excluding 'hg/ha_yield' values where ML model should be predicting 
+
+test_df=pd.DataFrame(test_data,columns=yield_df_onehot.loc[:, yield_df_onehot.columns != 'hg/ha_yield'].columns) 
+
+# using stack function to return a reshaped DataFrame by pivoting the columns of the current dataframe
+
+cntry=test_df[[col for col in test_df.columns if 'Country' in col]].stack()[test_df[[col for col in test_df.columns if 'Country' in col]].stack()>0]
+cntrylist=list(pd.DataFrame(cntry).index.get_level_values(1))
+countries=[i.split("_")[1] for i in cntrylist]
+itm=test_df[[col for col in test_df.columns if 'Item' in col]].stack()[test_df[[col for col in test_df.columns if 'Item' in col]].stack()>0]
+itmlist=list(pd.DataFrame(itm).index.get_level_values(1))
+items=[i.split("_")[1] for i in itmlist]
+In [58]:
+linkcode
+test_df.head()
+test_df.drop([col for col in test_df.columns if 'Item' in col],axis=1,inplace=True)
+test_df.drop([col for col in test_df.columns if 'Country' in col],axis=1,inplace=True)
+test_df.head()
+Out[59]:
+	average_rain_fall_mm_per_year	pesticides_tonnes	avg_temp
+0	0.183443	0.110716	0.542078
+1	0.458451	0.000413	0.627257
+2	0.183443	0.106159	0.518228
+3	1.000000	0.224154	0.890971
+4	0.458451	0.000355	0.625213
+In [60]:
+linkcode
+test_df['Country']=countries
+test_df['Item']=items
+test_df.head()
+from sklearn.tree import DecisionTreeRegressor
+clf=DecisionTreeRegressor()
+model=clf.fit(train_data,train_labels)
+
+test_df["yield_predicted"]= model.predict(test_data)
+test_df["yield_actual"]=pd.DataFrame(test_labels)["hg/ha_yield"].tolist()
+test_group=test_df.groupby("Item")
+# test_group.apply(lambda x: r2_score(x.yield_actual,x.yield_predicted))
+In [62]:
+# So let's run the model actual values against the predicted ones 
+
+fig, ax = plt.subplots() 
+
+ax.scatter(test_df["yield_actual"], test_df["yield_predicted"],edgecolors=(0, 0, 0))
+
+ax.set_xlabel('Actual')
+ax.set_ylabel('Predicted')
+ax.set_title("Actual vs Predicted")
+plt.show()
+
+                                                                                                                                            Model Results & Conclusions
+In [63]:
+varimp= {'imp':model.feature_importances_,'names':yield_df_onehot.columns[yield_df_onehot.columns!="hg/ha_yield"]}
+In [64]:
+a4_dims = (8.27,16.7)
+fig, ax = plt.subplots(figsize=a4_dims)
+df=pd.DataFrame.from_dict(varimp)
+df.sort_values(ascending=False,by=["imp"],inplace=True)
+df=df.dropna()
+sns.barplot(x="imp",y="names",palette="vlag",data=df,orient="h",ax=ax);
+
+
+Getting only top 7 of features importance in the model:
+In [65]:
+linkcode
+#7 most important factors that affect crops 
+a4_dims = (16.7, 8.27)
+
+fig, ax = plt.subplots(figsize=a4_dims)
+df=pd.DataFrame.from_dict(varimp)
+df.sort_values(ascending=False,by=["imp"],inplace=True)
+df=df.dropna()
+df=df.nlargest(7, 'imp')
+sns.barplot(x="imp",y="names",palette="vlag",data=df,orient="h",ax=ax);
+Getting only top 7 of features importance in the model:
+In [65]:
+linkcode
+#7 most important factors that affect crops 
+a4_dims = (16.7, 8.27)
+
+fig, ax = plt.subplots(figsize=a4_dims)
+df=pd.DataFrame.from_dict(varimp)
+df.sort_values(ascending=False,by=["imp"],inplace=True)
+df=df.dropna()
+df=df.nlargest(7, 'imp')
+sns.barplot(x="imp",y="names",palette="vlag",data=df,orient="h",ax=ax);
+
+  Getting only top 7 of features importance in the model:
+In [65]:
+linkcode
+#7 most important factors that affect crops 
+a4_dims = (16.7, 8.27)
+
+fig, ax = plt.subplots(figsize=a4_dims)
+df=pd.DataFrame.from_dict(varimp)
+df.sort_values(ascending=False,by=["imp"],inplace=True)
+df=df.dropna()
+df=df.nlargest(7, 'imp')
+sns.barplot(x="imp",y="names",palette="vlag",data=df,orient="h",ax=ax);
+The crop being potatoes has the highest importance in the decision making for the model, where it's the highest crops in the dataset. Cassava too, then as expected we see the effect of pesticides, where its the third most important feature, and then if the crop is sweet potatoes, we see some of the highest crops in features importance in dataset.
+If the crop is grown in India, makes sense since Indis has the largest crops sum in the dataset. Then comes rainfall and temprature. Thr first assumption about these features were correct, where they all significanally impact the expected crops yield in the model.
+In [66]:
+#Boxplot that shows yield for each item 
+a4_dims = (16.7, 8.27)
+
+fig, ax = plt.subplots(figsize=a4_dims)
+sns.boxplot(x="Item",y="hg/ha_yield",palette="vlag",data=yield_df,ax=ax);
+
+ 
+                                                                                                                                                  
